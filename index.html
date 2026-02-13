@@ -41,165 +41,315 @@
     <script type="text/babel" data-presets="typescript,react">
         const { useState, useEffect, useRef } = React;
 
+        // --- 1. FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzIP_EWP8o73U6W0xfeTFVriWopjzgrCE",
+            authDomain: "reports-shared-app.firebaseapp.com",
+            projectId: "reports-shared-app",
+            storageBucket: "reports-shared-app.firebasestorage.app",
+            messagingSenderId: "158065703096",
+            appId: "1:158065703096:web:160fc5d53253d63eea5c4d",
+            measurementId: "G-QECHCQCZ0C"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        auth.signInAnonymously().catch(err => console.error("Firebase Auth Error:", err));
+
+        const SHARED_DOC_REF = db.collection('app_data').doc('master_bank');
+
         // --- CONSTANTS ---
         const HPL_LEVELS = ["Collaboration/Empathy", "Agile", "Hard Working"];
         const STANDARD_LEVELS = ["Excellent", "Good", "Average", "Poor"];
-        const DEFAULT_SUBJECT_DEPARTMENTS = { "IB History": "Social Studies", "IGCSE History": "Social Studies", "Year 9 History": "Social Studies" };
-        const DEFAULT_COMMENT_BANK = { "IB History": { "HPL": { "Collaboration/Empathy": [], "Agile": [], "Hard Working": [] }, "Language": { "Excellent": [], "Good": [], "Average": [], "Poor": [] }, "Assessment": { "Excellent": [], "Good": [], "Average": [], "Poor": [] }, "Homework": { "Excellent": [], "Good": [], "Average": [], "Poor": [] }, "Improvement": { "Excellent": [], "Good": [], "Average": [], "Poor": [] } } };
-
+        
         // --- ICONS ---
         const Icon = ({ path, className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
-        const Users = ({ className }) => <Icon className={className} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></>} />;
+        const Users = ({ className }) => <Icon className={className} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />;
         const Library = ({ className }) => <Icon className={className} path={<><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></>} />;
         const Calendar = ({ className }) => <Icon className={className} path={<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>} />;
         const ArrowRight = ({ className }) => <Icon className={className} path={<><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>} />;
         const ArrowLeft = ({ className }) => <Icon className={className} path={<><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></>} />;
         const PlusCircle = ({ className }) => <Icon className={className} path={<><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></>} />;
-        const Trash2 = ({ className }) => <Icon className={className} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></>} />;
+        const CheckCircle = ({ className }) => <Icon className={className} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
+        const CloudCheck = ({ className }) => <Icon className={className} path={<><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 5.5-7.5"/><polyline points="8 15 12 19 16 15"/></>} />;
+        const CloudOff = ({ className }) => <Icon className={className} path={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 7h1.8a5 5 0 0 0 .68 8.44"/></>} />;
         const Camera = ({ className }) => <Icon className={className} path={<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>} />;
-        const Save = ({ className }) => <Icon className={className} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></>} />;
-        const Pencil = ({ className }) => <Icon className={className} path={<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></>} />;
+        const Globe = ({ className }) => <Icon className={className} path={<><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10z"/></>} />;
+        const Share = ({ className }) => <Icon className={className} path={<><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></>} />;
+        const RotateCcw = ({ className }) => <Icon className={className} path={<><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></>} />;
+        const Trash2 = ({ className }) => <Icon className={className} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>} />;
+        const Settings = ({ className }) => <Icon className={className} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />;
+        const Pencil = ({ className }) => <Icon className={className} path={<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>} />;
+        const Save = ({ className }) => <Icon className={className} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>} />;
+        const X = ({ className }) => <Icon className={className} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />;
+        const Download = ({ className }) => <Icon className={className} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>} />;
         const Briefcase = ({ className }) => <Icon className={className} path={<><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>} />;
+        const FileText = ({ className }) => <Icon className={className} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>} />;
 
-        // --- UI COMPONENTS ---
-        const Header = ({ isConnected, logo, onLogoUpdate }) => {
-            const fileInputRef = useRef(null);
-            return (
-                <div className="bg-school-blue text-white pt-8 pb-16 px-6 shadow-md border-b-4 border-school-lightBlue">
-                  <div className="max-w-5xl mx-auto flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                        <div className="bg-white p-2 rounded-lg relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <img src={logo || "https://cdn-icons-png.flaticon.com/512/3665/3665939.png"} className="h-16 w-16 object-contain" />
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><Camera className="w-6 h-6 text-white" /></div>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {const f=e.target.files[0]; if(f){const r=new FileReader(); r.onload=()=>onLogoUpdate(r.result); r.readAsDataURL(f);}}} />
-                        </div>
-                        <div><h1 className="text-3xl font-bold tracking-tight">Teacher Report Assistant</h1><div className="mt-2 text-xs font-bold">{isConnected ? <span className="text-green-300">● Live Sync Active</span> : <span className="text-red-300">○ Connecting...</span>}</div></div>
-                    </div>
-                  </div>
-                </div>
-            );
-        };
+        const DEFAULT_COMMENT_BANK = { "IB History": { "HPL": { "Collaboration/Empathy": {"General":[]}, "Agile": {"General":[]}, "Hard Working": {"General":[]} }, "Language": { "Excellent": {"General":[]}, "Good": {"General":[]}, "Average": {"General":[]}, "Poor": {"General":[]} } } };
+        const DEFAULT_SUBJECT_DEPARTMENTS = { "IB History": "Social Studies", "IGCSE History": "Social Studies", "Year 9 History": "Social Studies" };
 
-        const ClassSetup = ({ subject, setSubject, subjectOptions, department, setDepartment, departments, subjectDepartments, onStartClass, onAddSubject, reportPeriod, setReportPeriod, subjectTypes }) => {
-            const [namesInput, setNamesInput] = useState("");
-            return (
-                <div className="bg-white rounded-xl shadow-lg p-8 -mt-8 relative z-10 border-t-4 border-school-lightBlue animate-in">
-                    <h2 className="text-2xl font-bold mb-6">Class Setup</h2>
-                    <div className="space-y-6">
-                        <div><label className="block text-sm font-bold mb-2">1. Select Department</label><select value={department} onChange={e=>setDepartment(e.target.value)} className="w-full p-3 border rounded-lg">{departments.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-                        <div className={!department ? "opacity-50 pointer-events-none" : ""}>
-                            <label className="block text-sm font-bold mb-2">2. Select Subject</label>
-                            <select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full p-3 border rounded-lg">
-                                <option value="">-- Choose Subject --</option>
-                                {subjectOptions.filter(s=>(subjectDepartments[s]||"Other")===department).map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div className={!subject ? "opacity-50 pointer-events-none" : ""}>
-                            <label className="block text-sm font-bold mb-2">3. Students (One per line)</label>
-                            <textarea value={namesInput} onChange={e=>setNamesInput(e.target.value)} className="w-full p-3 border rounded-lg h-32" placeholder="Alice Smith&#10;Bob Jones" />
-                        </div>
-                        <button onClick={() => onStartClass(namesInput.split('\n').filter(n=>n.trim()), [{id:'HPL', label:'HPL'}, {id:'Language', label:'Language'}, {id:'Assessment', label:'Assessment'}])} className="w-full bg-school-red text-white py-4 rounded font-bold hover:bg-red-700 transition">Start Cycle</button>
-                    </div>
-                </div>
-            );
-        };
+        // --- SUB-COMPONENTS ---
 
-        const CommentCategory = ({ category, optionsMap, currentValue, onChange, levels }) => {
-            const skill = "General";
-            const opts = optionsMap[skill]?.[levels[0]] || [];
+        const CommentCategory = ({ category, optionsMap, currentValue, onChange, onAddComment, onEditComment, onDeleteComment, levels, onAddSkill, onSwitchSkill, activeSkill, skillTabs, onDeleteSkill }) => {
+            const [activeLevel, setActiveLevel] = useState(null);
+            const [isAdding, setIsAdding] = useState(false);
+            const [isManaging, setIsManaging] = useState(false);
+            const [newComment, setNewComment] = useState("");
+            const [editingText, setEditingText] = useState(null);
+            const [editText, setEditText] = useState("");
+
+            const supportsSkills = category.id === "Assessment" || category.id === "Improvement";
+            const currentDisplaySkill = supportsSkills ? activeSkill : "General";
+            const activeOptions = (activeLevel && optionsMap && optionsMap[currentDisplaySkill] && optionsMap[currentDisplaySkill][activeLevel]) || [];
+
             return (
                 <div className="p-4 bg-white rounded-xl shadow-sm border-l-4 border-school-lightBlue">
+                    {supportsSkills && (
+                        <div className="mb-4 border-b pb-2 flex flex-wrap gap-2 items-center">
+                            <span className="text-xs font-bold text-gray-400 uppercase mr-2">Skills:</span>
+                            {skillTabs.map(skill => (
+                                <button key={skill} onClick={() => { onSwitchSkill(skill); setActiveLevel(null); }} className={`px-3 py-1 rounded-full text-xs font-bold ${activeSkill === skill ? 'bg-school-blue text-white shadow-md' : 'bg-gray-100 text-gray-600'}`}>{skill}</button>
+                            ))}
+                            <button onClick={() => {const n=prompt("Skill:"); if(n) onAddSkill(n.trim());}} className="p-1 bg-green-50 text-green-600 rounded-full border border-green-200"><PlusCircle className="w-4 h-4" /></button>
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-2 mb-4">
-                        {levels.map(l => <button key={l} className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-white">{l}</button>)}
+                        {levels.map(lvl => <button key={lvl} onClick={() => { setActiveLevel(lvl); setIsAdding(false); setIsManaging(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${activeLevel === lvl ? 'bg-school-lightBlue text-white border-school-lightBlue' : 'bg-white text-gray-600 border-gray-200'}`}>{lvl}</button>)}
                     </div>
-                    <select className="w-full p-2 border rounded bg-gray-50 text-sm mb-4" onChange={e=>onChange(currentValue ? currentValue + " " + e.target.value : e.target.value)}>
-                        <option value="">-- Select Comment --</option>
-                        {opts.map((o, i) => <option key={i} value={o}>{o}</option>)}
-                    </select>
-                    <textarea rows={2} value={currentValue} readOnly className="w-full p-2 border rounded bg-gray-50 text-sm italic" />
+                    {activeLevel && (
+                        <div className="space-y-3">
+                             <div className="flex justify-between items-center border-b pb-2">
+                                <span className="text-xs font-bold text-gray-500 uppercase">{activeLevel} Comments</span>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setIsManaging(!isManaging)} className="text-xs text-gray-400">Manage</button>
+                                    <button onClick={() => setIsAdding(!isAdding)} className="text-xs text-school-lightBlue font-bold">+ Add</button>
+                                </div>
+                             </div>
+                             {isAdding && (
+                                <div className="flex gap-2 animate-in"><input value={newComment} onChange={e=>setNewComment(e.target.value)} className="flex-1 border p-1 rounded text-sm bg-blue-50" placeholder="New comment..." autoFocus /><button onClick={()=>{onAddComment(activeLevel, newComment.trim(), currentDisplaySkill); setNewComment(""); setIsAdding(false);}} className="bg-green-600 text-white px-2 rounded text-xs">Save</button></div>
+                             )}
+                             {isManaging ? (
+                                <div className="bg-gray-50 border rounded-lg p-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                    {activeOptions.map((opt, idx) => (
+                                        <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                                            {editingText === opt ? <><input value={editText} onChange={e=>setEditText(e.target.value)} className="flex-1 border mr-2" /><button onClick={()=>{onEditComment(activeLevel, opt, editText.trim(), currentDisplaySkill); setEditingText(null);}}><Save className="w-3 h-3 text-green-600"/></button></> : <><span className="flex-1 mr-2">{opt}</span><div className="flex gap-1"><button onClick={()=>{setEditingText(opt); setEditText(opt);}} className="text-blue-400"><Pencil className="w-3 h-3"/></button><button onClick={()=>onDeleteComment(activeLevel, opt, currentDisplaySkill)} className="text-red-400"><Trash2 className="w-3 h-3"/></button></div></>}
+                                        </div>
+                                    ))}
+                                </div>
+                             ) : (
+                                <select className="w-full p-2 border rounded-lg bg-gray-50 text-sm" onChange={e=>onChange(currentValue ? currentValue + " " + e.target.value : e.target.value)} value="">
+                                    <option value="" disabled>-- Select a comment --</option>
+                                    {activeOptions.map((opt, idx) => <option key={idx} value={opt}>{opt}</option>)}
+                                </select>
+                             )}
+                        </div>
+                    )}
+                    <textarea rows={3} value={currentValue} readOnly className="w-full p-3 border rounded-lg text-sm bg-gray-50 mt-3 cursor-not-allowed" placeholder="Draft text..." />
+                    <div className="flex justify-end mt-1"><button onClick={() => onChange("")} className="text-xs text-red-400 uppercase font-bold tracking-tighter">Clear Text</button></div>
                 </div>
             );
         };
 
-        const BatchStep = ({ category, students, classData, activeCategories, onUpdateStudent }) => {
+        const BatchStep = ({ category, students, classData, optionsMap, onUpdateStudent, onAddCustomComment, onEditComment, onDeleteComment, levels, onShareGlobal, onSharePeriod, reportPeriod, onAddSkill, skillTabs, onDeleteSkill, activeCategories }) => {
+            const [activeSkills, setActiveSkills] = useState({});
+            const isHPLOrLang = category.id === 'HPL' || category.id === 'Language';
+
             return (
                 <div className="space-y-8 animate-in pb-32">
-                    <div className="bg-blue-50 border-l-4 border-school-lightBlue p-4 rounded-r-lg sticky top-0 z-20 shadow-sm"><h2 className="text-xl font-bold">Category: {category.label}</h2></div>
-                    {students.map((student, idx) => (
-                        <div key={student} className="bg-white rounded-xl shadow-lg border overflow-hidden">
-                            <div className="bg-slate-800 px-6 py-3 text-white font-bold">{idx+1}. {student}</div>
-                            
-                            {/* BUILD HISTORY PREVIEW */}
-                            <div className="bg-slate-50 p-4 border-b">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Report Draft Progress</p>
-                                <div className="space-y-2">
-                                    {activeCategories.map(cat => {
-                                        const content = classData[student]?.[cat.id];
-                                        if (!content && cat.id !== category.id) return null;
-                                        return (
-                                            <div key={cat.id} className={`p-3 rounded border-l-4 ${cat.id === category.id ? 'bg-blue-50 border-school-lightBlue' : 'bg-white border-gray-200'}`}>
-                                                <span className="text-[9px] font-black uppercase text-gray-400">{cat.label}</span>
-                                                <p className="text-xs">{content || "(Drafting...)"}</p>
-                                            </div>
-                                        );
-                                    })}
+                    <div className="bg-blue-50 border-l-4 border-school-lightBlue p-4 rounded-r-lg flex justify-between items-center sticky top-0 z-20 shadow-sm">
+                        <h2 className="text-xl font-bold text-school-blue">Step: {category.label}</h2>
+                        <div className="flex gap-2">
+                            {isHPLOrLang && <button onClick={()=>onShareGlobal(category.id)} className="bg-purple-600 text-white text-[10px] font-bold px-3 py-2 rounded shadow">Update All Subjects</button>}
+                            {!isHPLOrLang && reportPeriod.includes("Progress") && <button onClick={()=>onSharePeriod(reportPeriod==='Progress 2'?'Progress 3':'Progress 2')} className="bg-indigo-600 text-white text-[10px] font-bold px-3 py-2 rounded shadow">Sync to {reportPeriod==='Progress 2'?'P3':'P2'}</button>}
+                        </div>
+                    </div>
+                    <div className="space-y-12">
+                        {students.map((student, idx) => (
+                            <div key={student} className="bg-white rounded-xl shadow-lg border-t-2 border-gray-100 overflow-hidden">
+                                <div className="bg-slate-800 px-6 py-3 text-white font-bold flex justify-between items-center">
+                                    <span>{idx+1}. {student}</span>
+                                </div>
+                                
+                                {/* LIVE HISTORY PREVIEW SECTION */}
+                                <div className="bg-slate-50 p-4 border-b">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-2 h-2 bg-school-lightBlue rounded-full animate-pulse"></div>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Running Draft</h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {activeCategories.map(cat => {
+                                            const content = classData[student]?.[cat.id];
+                                            const isCurrent = cat.id === category.id;
+                                            if (!content && !isCurrent) return null;
+                                            return (
+                                                <div key={cat.id} className={`p-3 rounded border-2 transition-all ${isCurrent ? 'bg-blue-50 border-school-lightBlue ring-2 ring-blue-100' : 'bg-white border-gray-100 opacity-80'}`}>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className={`text-[9px] font-black uppercase ${isCurrent ? 'text-school-lightBlue' : 'text-gray-400'}`}>{cat.label}</span>
+                                                        {!isCurrent && content && <span className="text-[9px] text-green-600 font-bold">SAVED</span>}
+                                                    </div>
+                                                    <p className={`text-xs ${isCurrent ? 'text-slate-800 font-semibold' : 'text-gray-500 italic'}`}>{content || (isCurrent ? "Drafting..." : "")}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="p-4">
+                                    <CommentCategory category={category} optionsMap={optionsMap} currentValue={classData[student]?.[category.id] || ""} onChange={val=>onUpdateStudent(student, category.id, val)} onAddComment={onAddCustomComment} onEditComment={onEditComment} onDeleteComment={onDeleteComment} levels={levels} onAddSkill={onAddSkill} onDeleteSkill={onDeleteSkill} skillTabs={(category.id==="Assessment"||category.id==="Improvement")?skillTabs:["General"]} activeSkill={activeSkills[student]||"General"} onSwitchSkill={s=>setActiveSkills(p=>({...p,[student]:s}))} />
                                 </div>
                             </div>
-
-                            <div className="p-4">
-                                <CommentCategory category={category} optionsMap={{"General":{"Excellent":[]}}} currentValue={classData[student]?.[category.id] || ""} onChange={val=>onUpdateStudent(student, category.id, val)} levels={STANDARD_LEVELS} />
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             );
         };
 
-        const ResultPanel = ({ prompt }) => (
-            <div className="bg-white rounded-xl shadow-xl p-8 border animate-in">
-                <h2 className="text-2xl font-bold mb-4">Complete Reports</h2>
-                <textarea readOnly value={prompt} className="w-full h-96 p-4 border rounded font-mono text-sm bg-gray-50" />
-            </div>
-        );
-
         // --- MAIN APP ---
-        const App = () => {
-            const firebaseConfig = { apiKey: "AIzaSyBzIP_EWP8o73U6W0xfeTFVriWopjzgrCE", authDomain: "reports-shared-app.firebaseapp.com", projectId: "reports-shared-app", storageBucket: "reports-shared-app.firebasestorage.app", messagingSenderId: "158065703096", appId: "1:158065703096:web:160fc5d53253d63eea5c4d", measurementId: "G-QECHCQCZ0C" };
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            const db = firebase.firestore();
-            const auth = firebase.auth();
-            const SHARED_DOC_REF = db.collection('app_data').doc('master_bank');
 
+        const App = () => {
+            const [customSubjects, setCustomSubjects] = useState([]);
+            const [subjectTypes, setSubjectTypes] = useState({});
+            const [mockTitles, setMockTitles] = useState({});
+            const [customBank, setCustomBank] = useState({});
+            const [isConnected, setIsConnected] = useState(false);
+            const [sharedLogo, setSharedLogo] = useState(null);
+            const [subjectDepartments, setSubjectDepartments] = useState({});
+            const [departments, setDepartments] = useState(["Social Studies", "English", "Maths", "Science", "Languages", "Arts", "PE", "Technology", "Primary", "Other"]);
+            const [subjectSkills, setSubjectSkills] = useState({});
             const [subject, setSubject] = useState("");
-            const [department, setDepartment] = useState("Social Studies");
+            const [department, setDepartment] = useState("");
             const [students, setStudents] = useState([]);
             const [currentStep, setCurrentStep] = useState(0);
+            const [reportPeriod, setReportPeriod] = useState("Progress 2");
             const [classData, setClassData] = useState({});
+            const [finalPrompt, setFinalPrompt] = useState("");
             const [activeCats, setActiveCats] = useState([]);
-            const [isConnected, setIsConnected] = useState(false);
 
             useEffect(() => {
-                auth.signInAnonymously().catch(e=>console.error(e));
-                const unsub = SHARED_DOC_REF.onSnapshot(doc => setIsConnected(true), () => setIsConnected(false));
+                const unsub = SHARED_DOC_REF.onSnapshot(doc => {
+                    if (doc.exists) {
+                        const d = doc.data();
+                        setCustomSubjects(d.customSubjects || []);
+                        setSubjectTypes(d.subjectTypes || {});
+                        setMockTitles(d.mockTitles || {});
+                        setCustomBank(d.customBank || {});
+                        setSubjectDepartments(d.subjectDepartments || {});
+                        setDepartments(d.departments || departments);
+                        setSubjectSkills(d.subjectSkills || {});
+                        setSharedLogo(d.logo);
+                        setIsConnected(true);
+                    } else {
+                        SHARED_DOC_REF.set({ customSubjects:[], subjectTypes:{}, mockTitles: {}, customBank:{}, subjectDepartments:DEFAULT_SUBJECT_DEPARTMENTS, subjectSkills: {}, departments, logo:null });
+                    }
+                }, () => setIsConnected(false));
                 return () => unsub();
             }, []);
 
+            const update = (k, v) => SHARED_DOC_REF.update({ [k]: v }).catch(console.error);
+
+            const handleAddSubject = (newName, type, dept) => {
+                const updatedList = [...new Set([...customSubjects, newName])];
+                const updatedTypes = { ...subjectTypes, [newName]: type };
+                const updatedDepts = { ...subjectDepartments, [newName]: dept };
+                SHARED_DOC_REF.update({ customSubjects: updatedList, subjectTypes: updatedTypes, subjectDepartments: updatedDepts });
+                setSubject(newName);
+            };
+
+            const handleStartClass = (names, cats) => {
+                setStudents(names);
+                setActiveCats(cats);
+                setClassData(names.reduce((a,v)=>({...a,[v]:{}}),{}));
+                setCurrentStep(0);
+            };
+
             return (
                 <div className="min-h-screen bg-gray-50 pb-32">
-                    <Header isConnected={isConnected} logo={null} onLogoUpdate={()=>{}} />
+                    <Header isConnected={isConnected} logo={sharedLogo} onLogoUpdate={l=>update('logo', l)} />
                     <main className="max-w-5xl mx-auto px-4">
                         {students.length === 0 ? (
-                            <ClassSetup subject={subject} setSubject={setSubject} subjectOptions={["IB History", "IGCSE History"]} department={department} setDepartment={setDepartment} departments={["Social Studies", "English"]} subjectDepartments={DEFAULT_SUBJECT_DEPARTMENTS} onStartClass={(n,c)=>{setStudents(n); setActiveCats(c); setClassData(n.reduce((a,v)=>({...a,[v]:{}}),{}));}} reportPeriod="P2" setReportPeriod={()=>{}} subjectTypes={{}} />
+                            <ClassSetup 
+                                subject={subject} setSubject={setSubject} subjectOptions={[...Object.keys(DEFAULT_SUBJECT_DEPARTMENTS), ...customSubjects]} department={department} setDepartment={setDepartment} departments={departments} subjectDepartments={subjectDepartments}
+                                onStartClass={handleStartClass} onAddSubject={handleAddSubject} reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} subjectTypes={subjectTypes} 
+                                mockTitles={mockTitles[subject] || ["","","","",""]} onUpdateMockTitle={(idx,val)=>{const m={...mockTitles}; m[subject]=m[subject]||["","","","",""]; m[subject][idx]=val; update('mockTitles', m);}}
+                                onDeleteSubject={()=>update('customSubjects', customSubjects.filter(s=>s!==subject))} onDeleteDepartment={d=>update('departments', departments.filter(x=>x!==d))} onAddDepartment={d=>update('departments', [...departments, d])}
+                            />
                         ) : currentStep < activeCats.length ? (
-                            <BatchStep category={activeCats[currentStep]} students={students} classData={classData} activeCategories={activeCats} onUpdateStudent={(n,c,v)=>setClassData(p=>({...p,[n]:{...p[n],[c]:v}}))} />
+                            <BatchStep 
+                                category={activeCats[currentStep]} students={students} classData={classData} activeCategories={activeCats} 
+                                optionsMap={(() => {
+                                    const cId = activeCats[currentStep].id;
+                                    const key = (cId === 'HPL' || cId === 'Language') ? `${subject}::SHARED` : `${subject}::${reportPeriod}`;
+                                    const map = {};
+                                    const sks = subjectSkills[subject]?.[cId] || ["General"];
+                                    sks.forEach(sk => {
+                                        map[sk] = {};
+                                        (cId === 'HPL' ? HPL_LEVELS : STANDARD_LEVELS).forEach(l => {
+                                            const cust = customBank[key]?.[cId]?.[l]?.[sk] || [];
+                                            const def = (sk === "General" ? DEFAULT_COMMENT_BANK[subject]?.[cId]?.[l]?.["General"] : []) || [];
+                                            map[sk][l] = Array.from(new Set([...def, ...cust]));
+                                        });
+                                    });
+                                    return map;
+                                })()}
+                                onUpdateStudent={(n,c,v)=>setClassData(p=>({...p,[n]:{...p[n],[c]:v}}))}
+                                onAddCustomComment={(l,t,sk)=>{
+                                    const cId = activeCats[currentStep].id;
+                                    const k = (cId === 'HPL' || cId === 'Language') ? `${subject}::SHARED` : `${subject}::${reportPeriod}`;
+                                    const nB = JSON.parse(JSON.stringify(customBank));
+                                    if(!nB[k]) nB[k]={}; if(!nB[k][cId]) nB[k][cId]={}; if(!nB[k][cId][l]) nB[k][cId][l]={}; if(!nB[k][cId][l][sk]) nB[k][cId][l][sk]=[];
+                                    if(!nB[k][cId][l][sk].includes(t)) { nB[k][cId][l][sk].push(t); update('customBank', nB); }
+                                }}
+                                onEditComment={(l,o,n,sk)=>{
+                                    const cId=activeCats[currentStep].id; const k=(cId==='HPL'||cId==='Language')?`${subject}::SHARED`:`${subject}::${reportPeriod}`;
+                                    const nB=JSON.parse(JSON.stringify(customBank)); const list=nB[k]?.[cId]?.[l]?.[sk];
+                                    if(list){ list[list.indexOf(o)]=n; update('customBank', nB); }
+                                }}
+                                onDeleteComment={(l,t,sk)=>{
+                                    const cId=activeCats[currentStep].id; const k=(cId==='HPL'||cId==='Language')?`${subject}::SHARED`:`${subject}::${reportPeriod}`;
+                                    const nB=JSON.parse(JSON.stringify(customBank)); const list=nB[k]?.[cId]?.[l]?.[sk];
+                                    if(list){ nB[k][cId][l][sk]=list.filter(x=>x!==t); update('customBank', nB); }
+                                }}
+                                onShareGlobal={() => {
+                                    const cId=activeCats[currentStep].id; const sD=customBank[`${subject}::SHARED`]?.[cId];
+                                    const nB={...customBank}; customSubjects.forEach(s=>{if(s!==subject){const k=`${s}::SHARED`; nB[k]=nB[k]||{}; nB[k][cId]=sD;}});
+                                    update('customBank', nB);
+                                }}
+                                onSharePeriod={tp => {
+                                    const cId=activeCats[currentStep].id; const nB={...customBank};
+                                    nB[`${subject}::${tp}`]=nB[`${subject}::${tp}`]||{}; nB[`${subject}::${tp}`][cId]=customBank[`${subject}::${reportPeriod}`][cId];
+                                    update('customBank', nB);
+                                }}
+                                reportPeriod={reportPeriod} levels={activeCats[currentStep].id==='HPL'?HPL_LEVELS:STANDARD_LEVELS}
+                                onAddSkill={s=>{const sk={...subjectSkills}; sk[subject]=sk[subject]||{}; const c=activeCats[currentStep].id; sk[subject][c]=[...(sk[subject][c]||["General"]), s]; update('subjectSkills', sk);}}
+                                skillTabs={subjectSkills[subject]?.[activeCats[currentStep].id] || ["General"]}
+                            />
                         ) : (
-                            <ResultPanel prompt={Object.entries(classData).map(([s,d])=>`${s}\n${Object.values(d).join('\n')}`).join('\n\n')} />
+                            <div className="bg-white rounded-xl shadow-xl p-8 border animate-in">
+                                <h2 className="text-2xl font-bold mb-4 text-school-blue">Final Batch Reports</h2>
+                                <textarea readOnly value={finalPrompt} className="w-full h-96 p-4 border rounded font-mono text-sm bg-gray-50 mb-4" />
+                                <button onClick={()=>{const b=new Blob([finalPrompt],{type:'text/plain'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download="Reports.txt"; a.click();}} className="bg-school-lightBlue text-white px-6 py-3 rounded font-bold">Download txt</button>
+                            </div>
                         )}
                     </main>
+
                     {students.length > 0 && currentStep < activeCats.length && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-50 flex justify-between max-w-5xl mx-auto shadow-2xl">
-                            <button onClick={()=>setCurrentStep(currentStep-1)} className="px-6 py-2 text-gray-400 font-bold">Back</button>
-                            <button onClick={()=>setCurrentStep(currentStep+1)} className="px-10 py-3 bg-school-lightBlue text-white rounded-lg font-bold">{currentStep===activeCats.length-1?"Generate":"Next Step"}</button>
+                        <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-50 shadow-2xl">
+                            <div className="max-w-5xl mx-auto flex justify-between">
+                                <button onClick={()=>setCurrentStep(currentStep-1)} className="px-6 py-2 text-gray-400 font-bold flex items-center gap-1"><ArrowLeft className="w-4 h-4"/> Back</button>
+                                <button onClick={()=>{
+                                    if(currentStep === activeCats.length - 1){
+                                        let o=""; students.forEach(s=>{o+=s.toUpperCase()+"\n"; activeCats.forEach(c=>{if(classData[s]?.[c.id])o+=`• ${classData[s][c.id].trim()}\n`;});o+="\n----------------\n\n";});
+                                        setFinalPrompt(o);
+                                    }
+                                    setCurrentStep(currentStep + 1); window.scrollTo(0,0);
+                                }} className={`px-10 py-3 rounded-lg font-bold text-white shadow-md ${currentStep === activeCats.length - 1 ? 'bg-green-600' : 'bg-school-lightBlue'}`}>
+                                    {currentStep === activeCats.length - 1 ? "Generate Reports" : "Next Step"} <ArrowRight className="ml-2 w-4 h-4 inline"/>
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
