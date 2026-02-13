@@ -509,7 +509,8 @@
         const BatchStep = ({ 
             category, students, classData, optionsMap, 
             onUpdateStudent, onAddCustomComment, onEditComment, onDeleteComment, levels,
-            onShareGlobal, onSharePeriod, onDeleteAllComments, reportPeriod, onAddSkill, skillTabs, onDeleteSkill
+            onShareGlobal, onSharePeriod, onDeleteAllComments, reportPeriod, onAddSkill, skillTabs, onDeleteSkill,
+            activeCategories
         }) => {
             const isHPLOrLang = category.id === 'HPL' || category.id === 'Language';
             const [activeSkills, setActiveSkills] = useState({});
@@ -520,7 +521,7 @@
 
             return (
                 <div className="space-y-8 animate-in">
-                    <div className="bg-blue-50 border-l-4 border-school-lightBlue p-4 rounded-r-lg mb-6 flex justify-between items-center flex-wrap gap-4">
+                    <div className="bg-blue-50 border-l-4 border-school-lightBlue p-4 rounded-r-lg mb-6 flex justify-between items-center flex-wrap gap-4 sticky top-0 z-20 shadow-sm">
                         <h2 className="text-xl font-bold text-school-blue">Category: {category.label}</h2>
                         <div className="flex gap-2">
                             {!isHPLOrLang && (
@@ -541,13 +542,42 @@
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 gap-6">
+                    <div className="grid grid-cols-1 gap-12">
                         {students.map((student, index) => (
-                            <div key={student} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div key={student} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                                 <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex items-center gap-2">
                                     <span className="bg-school-lightBlue text-white text-xs font-bold px-2 py-1 rounded-full">{index + 1}</span>
                                     <h3 className="font-bold text-gray-800 flex items-center gap-2">{student}</h3>
                                 </div>
+
+                                {/* --- NEW HISTORY PREVIEW SECTION --- */}
+                                <div className="bg-slate-50 p-4 border-b border-gray-200">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Previous selections for this student:</p>
+                                    <div className="space-y-2">
+                                        {activeCategories.map(cat => {
+                                            const content = classData[student]?.[cat.id];
+                                            const isCurrent = cat.id === category.id;
+                                            // Only show categories that have content OR the one we are currently writing
+                                            if (!content && !isCurrent) return null;
+                                            
+                                            return (
+                                                <div key={cat.id} className={`text-xs p-3 rounded border-l-4 transition-all ${isCurrent ? 'bg-blue-50 border-school-lightBlue ring-1 ring-blue-200' : 'bg-white border-gray-200'}`}>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className={`font-black uppercase text-[9px] ${isCurrent ? 'text-school-lightBlue' : 'text-gray-400'}`}>
+                                                            {cat.label} {isCurrent ? '(Drafting...)' : ''}
+                                                        </span>
+                                                        {!isCurrent && content && <span className="text-[9px] text-green-600 font-bold">SAVED</span>}
+                                                    </div>
+                                                    <p className={`${isCurrent ? 'text-school-blue font-semibold' : 'text-gray-600 italic'}`}>
+                                                        {content || (isCurrent ? "Select comments below..." : "")}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                {/* --- END HISTORY PREVIEW --- */}
+
                                 <div className="p-2">
                                     <CommentCategory 
                                         category={category} 
@@ -666,9 +696,7 @@
 
             const handleAddSubject = (newSubject, type, dept) => {
                 let updatedSubjects = [...customSubjects];
-                if (!updatedSubjects.includes(newSubject)) {
-                    updatedSubjects.push(newSubject);
-                }
+                if (!updatedSubjects.includes(newSubject)) updatedSubjects.push(newSubject);
                 const updatedTypes = { ...subjectTypes, [newSubject]: type };
                 const updatedDepts = { ...subjectDepartments, [newSubject]: dept };
 
@@ -690,7 +718,6 @@
                     subjectDepartments: updatedDepts,
                     customBank: newBank
                 });
-
                 setSubject(newSubject);
             };
 
@@ -702,20 +729,9 @@
                     const updatedMockTitles = { ...mockTitles }; delete updatedMockTitles[subject];
                     const updatedDepts = { ...subjectDepartments }; delete updatedDepts[subject];
                     const updatedSkills = { ...subjectSkills }; delete updatedSkills[subject];
-                    
                     const updatedBank = { ...customBank };
-                    Object.keys(updatedBank).forEach(key => {
-                        if (key.startsWith(`${subject}::`)) delete updatedBank[key];
-                    });
-
-                    SHARED_DOC_REF.update({ 
-                        customSubjects: updatedSubjects, 
-                        subjectTypes: updatedTypes, 
-                        mockTitles: updatedMockTitles, 
-                        subjectDepartments: updatedDepts, 
-                        subjectSkills: updatedSkills,
-                        customBank: updatedBank 
-                    }).then(() => { setSubject(""); }).catch(console.error);
+                    Object.keys(updatedBank).forEach(key => { if (key.startsWith(`${subject}::`)) delete updatedBank[key]; });
+                    SHARED_DOC_REF.update({ customSubjects: updatedSubjects, subjectTypes: updatedTypes, mockTitles: updatedMockTitles, subjectDepartments: updatedDepts, subjectSkills: updatedSkills, customBank: updatedBank }).then(() => { setSubject(""); }).catch(console.error);
                 }
             };
             
@@ -747,12 +763,10 @@
                 const catId = activeCategories[currentStepIndex].id;
                 const key = getBankKey(catId);
                 const newBank = JSON.parse(JSON.stringify(customBank));
-                
                 if (!newBank[key]) newBank[key] = {};
                 if (!newBank[key][catId]) newBank[key][catId] = {};
                 if (!newBank[key][catId][level]) newBank[key][catId][level] = {};
                 if (!newBank[key][catId][level][skill]) newBank[key][catId][level][skill] = [];
-
                 if (!newBank[key][catId][level][skill].includes(text)) {
                     newBank[key][catId][level][skill].push(text);
                     updateCloud('customBank', newBank);
@@ -782,7 +796,6 @@
 
             const handleAddSkill = (newSkill) => {
                 const catId = activeCategories[currentStepIndex].id;
-                if (catId !== 'Assessment' && catId !== 'Improvement') return;
                 const currentSkills = subjectSkills[subject] || {};
                 const catSkills = currentSkills[catId] || ["General"];
                 if(!catSkills.includes(newSkill)) {
@@ -808,7 +821,6 @@
                 if (!sourceCategoryData) return;
                 const newBank = JSON.parse(JSON.stringify(customBank));
                 const levels = (catId === 'HPL') ? HPL_LEVELS : STANDARD_LEVELS;
-
                 customSubjects.forEach(targetSubj => {
                     if (targetSubj === subject) return; 
                     const targetKey = `${targetSubj}::SHARED`;
@@ -866,7 +878,6 @@
                 const levels = (catId === 'HPL') ? HPL_LEVELS : STANDARD_LEVELS;
                 const map = {};
                 const mySkills = (subjectSkills[subject]?.[catId]) || ["General"];
-
                 mySkills.forEach(skill => {
                     map[skill] = {};
                     levels.forEach(l => {
@@ -892,9 +903,7 @@
                 let out = "";
                 students.forEach(s => {
                     out += `${s}\n`;
-                    activeCategories.forEach(c => {
-                        if (classData[s]?.[c.id]) out += `• ${classData[s][c.id].trim()}\n`;
-                    });
+                    activeCategories.forEach(c => { if (classData[s]?.[c.id]) out += `• ${classData[s][c.id].trim()}\n`; });
                     out += `\n-----------------------------------\n\n`;
                 });
                 setFinalBatchPrompt(out);
@@ -905,45 +914,25 @@
             const activeCategory = (!isSetup && !isResultStep) ? activeCategories[currentStepIndex] : null;
 
             return (
-                <div className="min-h-screen bg-gray-50 pb-32">
+                <div className="min-h-screen bg-gray-50 pb-32 text-slate-800">
                     <Header isConnected={isConnected} logo={sharedLogo} onLogoUpdate={(l) => updateCloud('logo', l)} />
                     <main className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-10">
                         {isSetup && (
                             <ClassSetup
-                                subject={subject} setSubject={setSubject}
-                                subjectOptions={[...Object.keys(DEFAULT_SUBJECT_DEPARTMENTS), ...customSubjects]}
-                                department={department} setDepartment={setDepartment}
-                                departments={departments}
-                                subjectDepartments={subjectDepartments}
-                                onStartClass={handleStartClass}
-                                onAddSubject={handleAddSubject}
-                                reportPeriod={reportPeriod} setReportPeriod={setReportPeriod}
-                                subjectTypes={subjectTypes}
-                                mockTitles={mockTitles[subject] || ["", "", "", "", ""]}
-                                onUpdateMockTitle={handleUpdateMockTitle}
-                                onDeleteSubject={handleDeleteSubject}
-                                onDeleteDepartment={handleDeleteDepartment}
-                                onAddDepartment={handleAddDepartment}
+                                subject={subject} setSubject={setSubject} subjectOptions={[...Object.keys(DEFAULT_SUBJECT_DEPARTMENTS), ...customSubjects]}
+                                department={department} setDepartment={setDepartment} departments={departments} subjectDepartments={subjectDepartments}
+                                onStartClass={handleStartClass} onAddSubject={handleAddSubject} reportPeriod={reportPeriod} setReportPeriod={setReportPeriod}
+                                subjectTypes={subjectTypes} mockTitles={mockTitles[subject] || ["", "", "", "", ""]} onUpdateMockTitle={handleUpdateMockTitle}
+                                onDeleteSubject={handleDeleteSubject} onDeleteDepartment={handleDeleteDepartment} onAddDepartment={handleAddDepartment}
                             />
                         )}
                         {activeCategory && (
                             <BatchStep
-                                key={activeCategory.id}
-                                category={activeCategory}
-                                students={students}
-                                classData={classData}
-                                optionsMap={getOptionsMap(activeCategory.id)}
-                                onUpdateStudent={handleUpdateStudent}
-                                onAddCustomComment={handleAddCustomComment}
-                                onEditComment={handleEditComment}
-                                onDeleteComment={handleDeleteComment}
-                                levels={(activeCategory.id === 'HPL') ? HPL_LEVELS : STANDARD_LEVELS}
-                                onShareGlobal={() => handleShareGlobal(activeCategory.id)}
-                                onSharePeriod={handleSharePeriod}
-                                onDeleteAllComments={handleDeleteAllInCategory}
-                                reportPeriod={reportPeriod}
-                                onAddSkill={handleAddSkill}
-                                onDeleteSkill={(s) => { if(confirm(`Delete skill "${s}"?`)) handleDeleteSkill(s)}}
+                                key={activeCategory.id} category={activeCategory} students={students} classData={classData} activeCategories={activeCategories}
+                                optionsMap={getOptionsMap(activeCategory.id)} onUpdateStudent={handleUpdateStudent} onAddCustomComment={handleAddCustomComment}
+                                onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onAddSkill={handleAddSkill} onDeleteSkill={handleDeleteSkill}
+                                reportPeriod={reportPeriod} levels={(activeCategory.id === 'HPL') ? HPL_LEVELS : STANDARD_LEVELS}
+                                onShareGlobal={() => handleShareGlobal(activeCategory.id)} onSharePeriod={handleSharePeriod} onDeleteAllComments={handleDeleteAllInCategory}
                                 skillTabs={subjectSkills[subject]?.[activeCategory.id] || ["General"]}
                             />
                         )}
@@ -962,19 +951,8 @@
                     {!isSetup && !isResultStep && (
                         <ActionPanel
                             onBack={() => setCurrentStepIndex(currentStepIndex - 1)}
-                            onReturnStart={() => {
-                                if(confirm("Return to start? Current student progress will be lost.")) {
-                                    setStudents([]);
-                                    setSubject("");
-                                    setCurrentStepIndex(0);
-                                    setClassData({});
-                                }
-                            }}
-                            onNext={() => {
-                                if (currentStepIndex === activeCategories.length - 1) generateFinalBatch();
-                                setCurrentStepIndex(currentStepIndex + 1);
-                                window.scrollTo(0,0);
-                            }}
+                            onReturnStart={() => { if(confirm("Return to start? Current student progress will be lost.")) { setStudents([]); setSubject(""); setCurrentStepIndex(0); setClassData({}); } }}
+                            onNext={() => { if (currentStepIndex === activeCategories.length - 1) generateFinalBatch(); setCurrentStepIndex(currentStepIndex + 1); window.scrollTo(0,0); }}
                             isLastStep={currentStepIndex === activeCategories.length - 1}
                         />
                     )}
